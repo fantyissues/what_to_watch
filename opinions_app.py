@@ -1,11 +1,16 @@
 import os
 from datetime import datetime, timezone
+from http import HTTPMethod
 from random import randrange
 
-from flask import Flask
+from flask import Flask, redirect, render_template, url_for
 from flask_sqlalchemy import SQLAlchemy
+from flask_wtf import FlaskForm
+from wtforms import StringField, SubmitField, TextAreaField, URLField
+from wtforms.validators import DataRequired, Length, Optional
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', "unsafe_9G2;{G:'u?hb#[l")
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI',
                                                   'sqlite:///db.sqlite3')
 db = SQLAlchemy(app)
@@ -20,6 +25,23 @@ class Opinion(db.Model):
                           default=datetime.now(timezone.utc))
 
 
+class OpinionForm(FlaskForm):
+    title = StringField(
+        'Введите название фильма',
+        validators=[DataRequired(message='Обязательное поле'),
+                    Length(1, 128)]
+    )
+    text = TextAreaField(
+        'Напишите мнение',
+        validators=[DataRequired(message='Обязательное поле')]
+    )
+    source = URLField(
+        'Добавьте ссылку на подробный обзор фильма',
+        validators=[Length(1, 256), Optional()]
+    )
+    submit = SubmitField('Добавить')
+
+
 @app.route('/')
 def index_view():
     quantity = Opinion.query.count()
@@ -27,7 +49,28 @@ def index_view():
         return 'В базе данных мнений о фильмах нет.'
     offset_value = randrange(quantity)
     opinion = Opinion.query.offset(offset_value).first()
-    return opinion.text
+    return render_template('opinion.html', opinion=opinion)
+
+
+@app.route('/opinions/<int:id>/')
+def opinion_view(id):
+    opinion = Opinion.query.get_or_404(id)
+    return render_template('opinion.html', opinion=opinion)
+
+
+@app.route('/add/', methods=[HTTPMethod.GET, HTTPMethod.POST])
+def add_opinion_view():
+    form = OpinionForm()
+    if form.validate_on_submit():
+        opinion = Opinion(
+            title=form.title.data,
+            text=form.text.data,
+            source=form.source.data
+        )
+        db.session.add(opinion)
+        db.session.commit()
+        return redirect(url_for('opinion_view', id=opinion.id))
+    return render_template('add_opinion.html', form=form)
 
 
 if __name__ == '__main__':
