@@ -4,6 +4,7 @@ from http import HTTPMethod, HTTPStatus
 from random import randrange
 
 from flask import abort, Flask, flash, redirect, render_template, url_for
+from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, TextAreaField, URLField
@@ -14,6 +15,7 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'CHANGE_ME')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI',
                                                   'sqlite:///db.sqlite3')
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
 
 class Opinion(db.Model):
@@ -23,6 +25,7 @@ class Opinion(db.Model):
     source = db.Column(db.String(256))
     timestamp = db.Column(db.DateTime, index=True,
                           default=datetime.now(timezone.utc))
+    added_by = db.Column(db.String(64))
 
 
 class OpinionForm(FlaskForm):
