@@ -1,9 +1,11 @@
+import csv
 import os
 from datetime import datetime, timezone
 from http import HTTPMethod, HTTPStatus
 from random import randrange
 
-from flask import abort, Flask, flash, redirect, render_template, url_for
+import click
+from flask import Flask, abort, flash, redirect, render_template, url_for
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
@@ -89,6 +91,20 @@ def internal_error(error):
 @app.errorhandler(HTTPStatus.NOT_FOUND)
 def page_not_found(error):
     return render_template('404.html'), HTTPStatus.NOT_FOUND
+
+
+@app.cli.command('load_opinions')
+def load_opinions_command():
+    """Функция закгрузки мнений в базу данных."""
+    with open('opinions.csv', encoding='utf-8') as file:
+        reader = csv.DictReader(file)
+        counter = 0
+        for row in reader:
+            opinion = Opinion(**row)
+            db.session.add(opinion)
+            db.session.commit()
+            counter += 1
+    click.echo(f'Загружено мнений: {counter}')
 
 
 if __name__ == '__main__':
