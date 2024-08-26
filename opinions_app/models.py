@@ -14,10 +14,15 @@ class Opinion(db.Model):
 
     def to_dict(self):
         return dict(
-            id = self.id,
-            title = self.title,
-            text = self.text,
-            source = self.source,
-            timestamp = self.timestamp,
-            added_by = self.added_by
+            id=self.id,
+            title=self.title,
+            text=self.text,
+            source=self.source,
+            timestamp=self.timestamp,
+            added_by=self.added_by
         )
+
+    def from_dict(self, data):
+        for field in ['title', 'text', 'source', 'added_by']:
+            if field in data:
+                setattr(self, field, data[field])
