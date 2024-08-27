@@ -5,6 +5,7 @@ from flask import request
 
 from . import app, db
 from .models import Opinion
+from .views import random_opinion
 
 
 @app.route('/api/opinions/<int:id>/', methods=[HTTPMethod.GET])
@@ -16,6 +17,12 @@ def get_opinion(id):
 @app.route('/api/opinions/<int:id>/', methods=[HTTPMethod.PATCH])
 def update_opinion(id):
     data = request.get_json()
+    if (
+        'text' in data and
+        Opinion.query.filter_by(text=data['text']).first() is not None
+    ):
+        return ({'error': 'Такое мнение уже есть в базе данных'},
+                HTTPStatus.BAD_REQUEST)
     opinion = Opinion.query.get_or_404(id)
     opinion.title = data.get('title', opinion.title)
     opinion.text = data.get('text', opinion.text)
@@ -42,7 +49,13 @@ def get_opinions():
 
 @app.route('/api/opinions/', methods=[HTTPMethod.POST])
 def add_opinion():
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if data is None or 'title' not in data or 'text' not in data:
+        return ({'error': 'В запросе отсутствуют обязательные поля'},
+                HTTPStatus.BAD_REQUEST)
+    if Opinion.query.filter_by(text=data['text']).first() is not None:
+        return ({'error': 'Ефкое мнение уже есть в базе данных'},
+                HTTPStatus.BAD_REQUEST)
     opinion = Opinion()
     opinion.from_dict(data)
     db.session.add(opinion)
@@ -52,8 +65,5 @@ def add_opinion():
 
 @app.route('/api/get-random-opinion/', methods=[HTTPMethod.GET])
 def get_random_opinion():
-    quantity = Opinion.query.count()
-    if quantity:
-        offset_value = randrange(quantity)
-        opinion = Opinion.query.offset(offset_value).first()
-        return {'opinion': opinion.to_dict()}, HTTPStatus.OK
+    opinion = random_opinion()
+    return {'opinion': opinion.to_dict()}, HTTPStatus.OK
