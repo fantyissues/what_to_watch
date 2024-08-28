@@ -1,16 +1,19 @@
 from http import HTTPMethod, HTTPStatus
-from random import randrange
 
 from flask import request
 
 from . import app, db
+from .error_handlers import InvalidAPIUsage
 from .models import Opinion
 from .views import random_opinion
 
 
 @app.route('/api/opinions/<int:id>/', methods=[HTTPMethod.GET])
 def get_opinion(id):
-    opinion = Opinion.query.get_or_404(id)
+    opinion = Opinion.query.get(id)
+    if opinion is None:
+        raise InvalidAPIUsage('Мнение с указанным id не найдено',
+                              HTTPStatus.NOT_FOUND)
     return {'opinion': opinion.to_dict()}, HTTPStatus.OK
 
 
@@ -23,7 +26,10 @@ def update_opinion(id):
     ):
         return ({'error': 'Такое мнение уже есть в базе данных'},
                 HTTPStatus.BAD_REQUEST)
-    opinion = Opinion.query.get_or_404(id)
+    opinion = Opinion.query.get(id)
+    if opinion is None:
+        raise InvalidAPIUsage('Мнение с указанным id не найдено',
+                              HTTPStatus.NOT_FOUND)
     opinion.title = data.get('title', opinion.title)
     opinion.text = data.get('text', opinion.text)
     opinion.source = data.get('source', opinion.source)
@@ -34,7 +40,10 @@ def update_opinion(id):
 
 @app.route('/api/opinions/<int:id>/', methods=[HTTPMethod.DELETE])
 def delete_opinion(id):
-    opinion = Opinion.query.get_or_404(id)
+    opinion = Opinion.query.get(id)
+    if opinion is None:
+        raise InvalidAPIUsage('Мнение с указанным id не найдено',
+                              HTTPStatus.NOT_FOUND)
     db.session.delete(opinion)
     db.session.commit()
     return '', HTTPStatus.NO_CONTENT
@@ -51,11 +60,9 @@ def get_opinions():
 def add_opinion():
     data = request.get_json(silent=True)
     if data is None or 'title' not in data or 'text' not in data:
-        return ({'error': 'В запросе отсутствуют обязательные поля'},
-                HTTPStatus.BAD_REQUEST)
+        raise InvalidAPIUsage('В запросе отсутствуют обязательные поля')
     if Opinion.query.filter_by(text=data['text']).first() is not None:
-        return ({'error': 'Ефкое мнение уже есть в базе данных'},
-                HTTPStatus.BAD_REQUEST)
+        raise InvalidAPIUsage('Такое мнение уже есть в базе данных')
     opinion = Opinion()
     opinion.from_dict(data)
     db.session.add(opinion)
@@ -66,4 +73,7 @@ def add_opinion():
 @app.route('/api/get-random-opinion/', methods=[HTTPMethod.GET])
 def get_random_opinion():
     opinion = random_opinion()
+    if opinion is None:
+        raise InvalidAPIUsage('Мнение с указанным id не найдено',
+                              HTTPStatus.NOT_FOUND)
     return {'opinion': opinion.to_dict()}, HTTPStatus.OK
